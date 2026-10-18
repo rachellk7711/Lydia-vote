@@ -14,6 +14,32 @@
     .btn-burgundy:hover { background-color: #50202e; }
     .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e5e5; overflow: hidden; }
     .leaf-bg { background-image: url('https://www.transparenttextures.com/patterns/rice-paper.png'); }
+
+    /* ── 최종 후보 발표 화면: 가을 분위기 장식 ── */
+    .finale-divider { width: 140px; height: 2px; margin: 0 auto 2.5rem auto; background: linear-gradient(90deg, transparent, #c9a24b, transparent); }
+    .finale-card {
+      background: linear-gradient(180deg, #fffdf9 0%, #fdf3e4 100%);
+      border: 1px solid #e8d4ad;
+      border-radius: 18px;
+      box-shadow: 0 16px 32px rgba(106,44,62,0.16);
+      overflow: visible;
+    }
+    .finale-rank {
+      position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #6A2C3E; color: #f6e3b4; border: 2px solid #d9b56a;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 15px; font-family: 'Noto Sans KR', sans-serif;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .falling-leaf { position: absolute; top: -10%; opacity: 0; animation: leafFall linear infinite; will-change: transform, opacity; pointer-events: none; }
+    @keyframes leafFall {
+      0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+      8%   { opacity: 0.65; }
+      50%  { transform: translateY(55vh) translateX(30px) rotate(180deg); }
+      92%  { opacity: 0.65; }
+      100% { transform: translateY(115vh) translateX(-25px) rotate(360deg); opacity: 0; }
+    }
   </style>
   
   <!-- Firebase & React 라이브러리 -->
@@ -156,6 +182,32 @@
               <img src={c.photo} className="w-full h-72 object-cover rounded mb-3 pointer-events-none" />
               <p className="text-xl font-bold">{formatName(c.birth, c.name)}</p>
             </div>
+          ))}
+        </div>
+      );
+    };
+
+    // ★ 최종 후보 발표 화면에 은은하게 떨어지는 낙엽 장식 (마우스/터치 입력을 가로막지 않음)
+    const FallingLeaves = () => {
+      const leaves = React.useMemo(() => {
+        const emojis = ['🍁', '🍂', '🍃'];
+        return Array.from({ length: 16 }).map((_, i) => ({
+          id: i,
+          emoji: emojis[i % emojis.length],
+          left: Math.random() * 100,
+          size: 18 + Math.random() * 16,
+          duration: 9 + Math.random() * 9,
+          delay: -Math.random() * 18,
+        }));
+      }, []);
+      return (
+        <div className="fixed inset-0 overflow-hidden" style={{ pointerEvents: 'none', zIndex: 0 }}>
+          {leaves.map(l => (
+            <span
+              key={l.id}
+              className="falling-leaf"
+              style={{ left: `${l.left}%`, fontSize: `${l.size}px`, animationDuration: `${l.duration}s`, animationDelay: `${l.delay}s` }}
+            >{l.emoji}</span>
           ))}
         </div>
       );
@@ -344,24 +396,32 @@
               <FloatingCards candidates={candidates} />
             )}
 
-            {/* 투표 종료 결과 발표 (관리자가 선정한 최종 후보) */}
+            {/* 투표 종료 결과 발표 (관리자가 선정한 최종 후보) — 가을 분위기 연출 */}
             {status === 'finished' && (
-              <div>
-                {finalists.length > 0 ? (
-                  <h2 className="text-4xl text-center mb-10 mt-6">최종 후보입니다!</h2>
-                ) : (
-                  <h2 className="text-2xl text-center mb-10 mt-6 text-gray-400">관리자 화면에서 최종 후보를 선정해 주세요</h2>
-                )}
-                {/* max-w-6xl 부모를 벗어나 화면 전체 폭을 써서, 인원수와 상관없이 한 줄로 표시 */}
-                {/* (쓰고 있는 Tailwind CDN이 구버전 사전 컴파일 CSS라 대괄호 임의값 클래스가 적용되지 않아 인라인 스타일로 처리) */}
-                <div style={{ position: 'relative', left: '50%', width: '100vw', marginLeft: '-50vw', paddingLeft: '2.5rem', paddingRight: '2.5rem', boxSizing: 'border-box' }}>
-                  <div className="flex flex-nowrap justify-center items-start gap-6 mt-10">
-                    {finalists.map(c => (
-                      <div key={c.id} className="card p-4 text-center" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: '280px' }}>
-                        <img src={c.photo} className="w-full object-cover rounded mb-4" style={{ aspectRatio: '1 / 1' }} />
-                        <p className="text-2xl font-bold truncate">{formatName(c.birth, c.name)}</p>
-                      </div>
-                    ))}
+              <div style={{ position: 'relative' }}>
+                <FallingLeaves />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  {finalists.length > 0 ? (
+                    <div className="text-center">
+                      <p style={{ fontSize: '1.5rem', letterSpacing: '1rem', marginBottom: '0.5rem', opacity: 0.8 }}>🍁 🍂 🍁</p>
+                      <h2 className="text-5xl mb-4">최종 후보입니다!</h2>
+                      <div className="finale-divider"></div>
+                    </div>
+                  ) : (
+                    <h2 className="text-2xl text-center mb-10 mt-6 text-gray-400">관리자 화면에서 최종 후보를 선정해 주세요</h2>
+                  )}
+                  {/* max-w-6xl 부모를 벗어나 화면 전체 폭을 써서, 인원수와 상관없이 한 줄로 표시 */}
+                  {/* (쓰고 있는 Tailwind CDN이 구버전 사전 컴파일 CSS라 대괄호 임의값 클래스가 적용되지 않아 인라인 스타일로 처리) */}
+                  <div style={{ position: 'relative', left: '50%', width: '100vw', marginLeft: '-50vw', paddingLeft: '2.5rem', paddingRight: '2.5rem', boxSizing: 'border-box' }}>
+                    <div className="flex flex-nowrap justify-center items-start gap-6 mt-10">
+                      {finalists.map((c, i) => (
+                        <div key={c.id} className="finale-card p-5 text-center" style={{ position: 'relative', flex: '1 1 0%', minWidth: 0, maxWidth: '300px' }}>
+                          <span className="finale-rank">{i + 1}</span>
+                          <img src={c.photo} className="w-full object-cover mb-4 mt-1" style={{ aspectRatio: '1 / 1', borderRadius: '12px' }} />
+                          <p className="text-2xl font-bold truncate" style={{ color: '#6A2C3E' }}>{formatName(c.birth, c.name)}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
