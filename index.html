@@ -352,13 +352,17 @@
                 ) : (
                   <h2 className="text-2xl text-center mb-10 mt-6 text-gray-400">관리자 화면에서 최종 후보를 선정해 주세요</h2>
                 )}
-                <div className="flex flex-wrap justify-center gap-10 mt-10">
-                  {finalists.map(c => (
-                    <div key={c.id} className="card p-6 text-center w-64 transform scale-110">
-                      <img src={c.photo} className="w-full h-64 object-cover rounded mb-4" />
-                      <p className="text-4xl font-bold">{formatName(c.birth, c.name)}</p>
-                    </div>
-                  ))}
+                {/* max-w-6xl 부모를 벗어나 화면 전체 폭을 써서, 인원수와 상관없이 한 줄로 표시 */}
+                {/* (쓰고 있는 Tailwind CDN이 구버전 사전 컴파일 CSS라 대괄호 임의값 클래스가 적용되지 않아 인라인 스타일로 처리) */}
+                <div style={{ position: 'relative', left: '50%', width: '100vw', marginLeft: '-50vw', paddingLeft: '2.5rem', paddingRight: '2.5rem', boxSizing: 'border-box' }}>
+                  <div className="flex flex-nowrap justify-center items-start gap-6 mt-10">
+                    {finalists.map(c => (
+                      <div key={c.id} className="card p-4 text-center" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: '280px' }}>
+                        <img src={c.photo} className="w-full object-cover rounded mb-4" style={{ aspectRatio: '1 / 1' }} />
+                        <p className="text-2xl font-bold truncate">{formatName(c.birth, c.name)}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
