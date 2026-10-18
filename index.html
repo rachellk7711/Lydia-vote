@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>루디아 모임 총무 선출</title>
+  <title>루디아 모임 투표</title>
   <!-- 폰트 및 스타일 -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -16,12 +16,16 @@
     .leaf-bg { background-image: url('https://www.transparenttextures.com/patterns/rice-paper.png'); }
   </style>
   
-  <!-- Firebase & React 라이브러리 (설치 불필요 CDN) -->
+  <!-- Firebase & React 라이브러리 -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  
+  <!-- 데이터 백업용(ZIP, CSV) 라이브러리 추가 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body class="leaf-bg min-h-screen">
   <div id="root"></div>
@@ -52,7 +56,6 @@
         if(hash === '#admin') setView('admin');
         else if(hash === '#screen') setView('screen');
         
-        // 상태 및 후보자 실시간 불러오기
         db.collection("settings").doc("appStatus").onSnapshot(doc => {
           if(doc.exists) setStatus(doc.data().current);
           else db.collection("settings").doc("appStatus").set({ current: 'register' });
@@ -65,7 +68,7 @@
         });
       }, []);
 
-      // 사진 압축 및 등록 (Storage 대신 텍스트로 DB 저장)
+      // 사진 압축 및 등록
       const handleRegister = async (e) => {
         e.preventDefault();
         const name = e.target.name.value;
@@ -85,7 +88,7 @@
             canvas.height = img.height * scaleSize;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 이미지 압축
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
 
             db.collection("candidates").add({
               photo: dataUrl, name, birth, votes: 0, timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -102,7 +105,7 @@
       // 투표하기
       const handleVote = (id) => {
         if(hasVoted) return alert("이미 투표하셨습니다.");
-        if(confirm("이 후보에게 투표하시겠습니까?")) {
+        if(confirm("이 분에게 투표하시겠습니까?")) {
           db.collection("candidates").doc(id).update({
             votes: firebase.firestore.FieldValue.increment(1)
           }).then(() => {
@@ -117,12 +120,18 @@
       if (view === 'mobile') {
         return (
           <div className="max-w-md mx-auto p-5">
-            <h1 className="text-2xl text-center font-bold mb-2">🍂 아름다운 동행, 루디아</h1>
+            <h1 className="text-2xl text-center font-bold mb-2">🍂 마음과 마음을 잇는 따뜻한 자리, 루디아</h1>
             {status === 'register' && (
               <div className="card p-6 mt-6">
-                <h2 className="text-xl text-center mb-6 font-bold">우리의 총무를 추천해 주세요</h2>
+                <h2 className="text-xl text-center mb-6 font-bold">후보 등록을 진행해 주세요</h2>
                 <form onSubmit={handleRegister} className="flex flex-col gap-4">
-                  <input type="file" name="photo" accept="image/*" capture="environment" className="border p-2 rounded" required />
+                  {/* 예쁜 사진 등록 버튼 (앨범/카메라 모두 선택 가능) */}
+                  <label className="cursor-pointer border-2 border-dashed border-gray-400 p-8 rounded-lg text-center bg-white hover:bg-gray-50 transition">
+                    <span className="text-4xl block mb-2">📷</span>
+                    <span className="text-gray-700 font-bold">터치하여 사진 촬영 및 앨범 선택</span>
+                    <input type="file" name="photo" accept="image/*" className="hidden" required />
+                  </label>
+                  
                   <input type="text" name="name" placeholder="이름 (예: 홍길동)" className="border p-3 rounded" required />
                   <input type="number" name="birth" placeholder="생년 (예: 1970)" className="border p-3 rounded" required />
                   <button type="submit" className="btn-burgundy font-bold p-4 rounded text-lg mt-2">🚀 후보 등록하기</button>
@@ -159,7 +168,7 @@
         const top3 = [...candidates].sort((a,b) => b.votes - a.votes).slice(0,3);
         return (
           <div className="p-10 max-w-6xl mx-auto">
-            <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 총무 후보</h1>
+            <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 후보</h1>
             {status !== 'finished' ? (
               <div className="grid grid-cols-5 gap-6">
                 {candidates.map(c => (
@@ -190,28 +199,77 @@
 
       // --- 화면 3: 관리자 대시보드 ---
       if (view === 'admin') {
+        
+        // 1. 명단 CSV 다운로드 기능 (이름, 생년만)
+        const handleDownloadCSV = () => {
+          if (candidates.length === 0) return alert("등록된 데이터가 없습니다.");
+          const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+            + "이름,생년\n" 
+            + candidates.map(c => `${c.name},${c.birth}`).join("\n");
+          const encodedUri = encodeURI(csvContent);
+          const link = document.createElement("a");
+          link.setAttribute("href", encodedUri);
+          link.setAttribute("download", "루디아_명단.csv");
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+
+        // 2. 사진 일괄 압축(ZIP) 다운로드 기능
+        const handleDownloadImages = () => {
+          if (candidates.length === 0) return alert("등록된 사진이 없습니다.");
+          alert("사진을 압축하고 있습니다. 잠시만 기다려주세요...");
+          const zip = new JSZip();
+          candidates.forEach(c => {
+            const base64Data = c.photo.split(',')[1];
+            zip.file(`${c.name}.jpg`, base64Data, {base64: true});
+          });
+          zip.generateAsync({type:"blob"}).then(function(content) {
+            saveAs(content, "루디아_후보사진모음.zip");
+          });
+        };
+
         return (
           <div className="max-w-md mx-auto p-5">
-            <h1 className="text-2xl font-bold mb-4">⚙️ 관리자 대시보드</h1>
+            <h1 className="text-2xl font-bold mb-4 text-center">⚙️ 관리자 대시보드</h1>
+            
             <div className="flex gap-2 mb-6">
-              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'register'})} className="flex-1 bg-gray-200 p-2 rounded">1.등록모드</button>
-              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'voting'})} className="flex-1 bg-blue-500 text-white p-2 rounded">2.투표시작</button>
-              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'finished'})} className="flex-1 btn-burgundy p-2 rounded">3.결과발표</button>
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'register'})} className="flex-1 bg-gray-200 p-2 rounded text-sm font-bold">1.등록모드</button>
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'voting'})} className="flex-1 bg-blue-500 text-white p-2 rounded text-sm font-bold">2.투표시작</button>
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'finished'})} className="flex-1 btn-burgundy p-2 rounded text-sm font-bold">3.결과발표</button>
             </div>
+
             {candidates.sort((a,b)=>b.votes - a.votes).map((c, i) => (
-              <div key={c.id} className="flex items-center gap-4 bg-white p-3 mb-2 rounded border">
-                <span className="font-bold text-gray-400">{i+1}</span>
-                <img src={c.photo} className="w-12 h-12 object-cover rounded-full" />
+              <div key={c.id} className="flex items-center gap-4 bg-white p-3 mb-2 rounded border shadow-sm">
+                <span className="font-bold text-gray-400 w-4 text-center">{i+1}</span>
+                <img src={c.photo} className="w-12 h-12 object-cover rounded-full border" />
                 <div className="flex-1">
-                  <p className="font-bold">{c.name} ({c.birth})</p>
-                  <p className="text-sm text-red-600">{c.votes}표</p>
+                  <p className="font-bold text-lg">{c.name} <span className="text-sm font-normal text-gray-500">({c.birth})</span></p>
+                  <p className="text-sm text-red-600 font-bold">{c.votes}표</p>
                 </div>
-                <button onClick={()=>db.collection("candidates").doc(c.id).delete()} className="text-red-500 text-sm p-2">삭제</button>
+                <button onClick={()=>{ if(confirm("이 후보를 삭제할까요?")) db.collection("candidates").doc(c.id).delete(); }} className="text-red-500 text-sm p-2 bg-red-50 rounded">삭제</button>
               </div>
             ))}
-            <button onClick={()=>{
-              if(confirm("모든 데이터를 삭제합니까?")) candidates.forEach(c => db.collection("candidates").doc(c.id).delete());
-            }} className="w-full bg-red-600 text-white p-3 rounded mt-6">🚨 모든 데이터 파기</button>
+
+            <div className="mt-8 pt-6 border-t border-gray-300">
+              <p className="text-sm text-gray-500 mb-2 font-bold">💾 백업 및 초기화</p>
+              
+              <div className="flex gap-2 mb-3">
+                <button onClick={handleDownloadCSV} className="flex-1 bg-green-600 text-white p-3 rounded font-bold text-sm">
+                  📊 명단(CSV) 저장
+                </button>
+                <button onClick={handleDownloadImages} className="flex-1 bg-blue-600 text-white p-3 rounded font-bold text-sm">
+                  📸 사진(ZIP) 저장
+                </button>
+              </div>
+              
+              <button onClick={()=>{
+                if(confirm("정말 모든 데이터를 영구 삭제합니까? (삭제 전 명단과 사진을 꼭 백업해두세요!)")) {
+                  candidates.forEach(c => db.collection("candidates").doc(c.id).delete());
+                  alert("초기화되었습니다.");
+                }
+              }} className="w-full bg-red-600 text-white p-3 rounded font-bold text-lg mt-3">🚨 모든 데이터 파기</button>
+            </div>
           </div>
         );
       }
