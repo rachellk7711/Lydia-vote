@@ -43,14 +43,79 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // 입력된 생년월일(예: 800101)에서 '80'만 추출하여 이름과 합치는 포맷 함수
+    // 입력된 생년월일 포맷 함수
     const formatName = (birth, name) => {
       let yy = String(birth || '').replace(/[^0-9]/g, '');
-      if (yy.length === 8) yy = yy.substring(2, 4); // 19800101 -> 80
-      else if (yy.length >= 6) yy = yy.substring(0, 2); // 800101 -> 80
-      else if (yy.length === 4) yy = yy.substring(2, 4); // 1980 -> 80
+      if (yy.length === 8) yy = yy.substring(2, 4); 
+      else if (yy.length >= 6) yy = yy.substring(0, 2); 
+      else if (yy.length === 4) yy = yy.substring(2, 4); 
       else yy = yy.substring(0, 2); 
       return `[${yy} ${name}]`;
+    };
+
+    // ★ 투표 중일 때 대형 스크린에 표시되는 '스크린세이버' 애니메이션 컴포넌트
+    const FloatingCards = ({ candidates }) => {
+      const cardsRef = React.useRef([]);
+
+      React.useEffect(() => {
+        if (candidates.length === 0) return;
+        
+        // 각 카드의 시작 위치와 이동 속도(방향)를 무작위로 설정
+        const physics = candidates.map(() => ({
+          x: Math.random() * (window.innerWidth - 200),
+          y: Math.random() * (window.innerHeight - 250),
+          dx: (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 1.5), // X축 이동 속도
+          dy: (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 1.5), // Y축 이동 속도
+        }));
+
+        let animationId;
+        const animate = () => {
+          physics.forEach((p, i) => {
+            const el = cardsRef.current[i];
+            if (!el) return;
+
+            const rect = el.getBoundingClientRect();
+            
+            p.x += p.dx;
+            p.y += p.dy;
+
+            // 화면 테두리에 닿으면 튕기기 (방향 반전)
+            if (p.x <= 0 || p.x + rect.width >= window.innerWidth) p.dx *= -1;
+            if (p.y <= 0 || p.y + rect.height >= window.innerHeight) p.dy *= -1;
+
+            // 실제 화면 이동 적용 (하드웨어 가속 사용으로 부드러움)
+            el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+          });
+          animationId = requestAnimationFrame(animate);
+        };
+        
+        animationId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationId);
+      }, [candidates]);
+
+      return (
+        <div className="fixed inset-0 overflow-hidden bg-[#FAF9F6]">
+          {/* 배경의 은은한 안내 문구 */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <h2 className="text-6xl font-bold text-gray-300 opacity-40 myeongjo tracking-widest text-center leading-relaxed">
+              지금은 투표 중입니다<br/>스마트폰에서 소중한 한 표를 행사해 주세요
+            </h2>
+          </div>
+          
+          {/* 떠다니는 포토 카드들 */}
+          {candidates.map((c, i) => (
+            <div 
+              key={c.id} 
+              ref={el => cardsRef.current[i] = el}
+              className="absolute top-0 left-0 card p-3 text-center bg-white shadow-2xl border-2 border-gray-100" 
+              style={{ width: '160px', willChange: 'transform' }}
+            >
+              <img src={c.photo} className="w-full h-36 object-cover rounded mb-3 pointer-events-none" />
+              <p className="text-xl font-bold">{formatName(c.birth, c.name)}</p>
+            </div>
+          ))}
+        </div>
+      );
     };
 
     // 2. 메인 앱 컴포넌트
@@ -85,13 +150,13 @@
           const img = new Image();
           img.onload = function() {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 800;
+            const MAX_WIDTH = 800; // 고화질 800픽셀 유지
             const scaleSize = MAX_WIDTH / img.width;
             canvas.width = MAX_WIDTH;
             canvas.height = img.height * scaleSize;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            setPhotoData(canvas.toDataURL('image/jpeg', 0.8)); 
+            setPhotoData(canvas.toDataURL('image/jpeg', 0.8)); // 화질 80%
           }
           img.src = event.target.result;
         }
@@ -163,7 +228,6 @@
                   <input type="text" name="name" placeholder="이름 (예: 루디아)" className="border p-3 rounded mt-2" required />
                   <input type="number" name="birth" placeholder="생년월일 6자리 (예: 700101)" className="border p-3 rounded" required />
                   
-                  {/* 양/음력 및 빠른 년생 선택 */}
                   <div className="flex justify-around items-center border p-3 rounded bg-white text-gray-700">
                     <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="calendar" value="양력" defaultChecked className="w-4 h-4" /> 양력</label>
                     <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="calendar" value="음력" className="w-4 h-4" /> 음력</label>
@@ -202,21 +266,34 @@
       // --- 화면 2: 대형 스크린 (노트북용) ---
       if (view === 'screen') {
         const top3 = [...candidates].sort((a,b) => b.votes - a.votes).slice(0,3);
+        
         return (
           <div className="p-10 max-w-6xl mx-auto">
-            <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 회원 명단</h1>
-            {status !== 'finished' ? (
-              <div className="grid grid-cols-5 gap-6">
-                {candidates.map(c => (
-                  <div key={c.id} className="card p-3 text-center">
-                    <img src={c.photo} className="w-full h-48 object-cover rounded mb-3" />
-                    <p className="text-2xl font-bold">{formatName(c.birth, c.name)}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
+            {/* 등록 모드일 때 (멈춰있는 갤러리 뷰) */}
+            {status === 'register' && (
               <div>
-                <h2 className="text-4xl text-center mb-10">총무 후보 최종 3인입니다!</h2>
+                <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 회원 명단</h1>
+                <div className="grid grid-cols-5 gap-6">
+                  {candidates.map(c => (
+                    <div key={c.id} className="card p-3 text-center">
+                      <img src={c.photo} className="w-full h-48 object-cover rounded mb-3" />
+                      <p className="text-2xl font-bold">{formatName(c.birth, c.name)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 투표 모드일 때 (스크린세이버 효과) */}
+            {status === 'voting' && (
+              <FloatingCards candidates={candidates} />
+            )}
+
+            {/* 투표 종료 결과 발표 (최종 3인) */}
+            {status === 'finished' && (
+              <div>
+                <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 회원 명단</h1>
+                <h2 className="text-4xl text-center mb-10">최종 3인입니다!</h2>
                 <div className="flex justify-center gap-10 mt-10">
                   {top3.map(c => (
                     <div key={c.id} className="card p-6 text-center w-64 transform scale-110">
@@ -233,8 +310,6 @@
 
       // --- 화면 3: 관리자 대시보드 ---
       if (view === 'admin') {
-        
-        // CSV 다운로드 시 추가된 생년월일 정보 반영 (득표수는 제외)
         const handleDownloadCSV = () => {
           if (candidates.length === 0) return alert("등록된 데이터가 없습니다.");
           const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
