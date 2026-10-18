@@ -204,7 +204,7 @@
         const top3 = [...candidates].sort((a,b) => b.votes - a.votes).slice(0,3);
         return (
           <div className="p-10 max-w-6xl mx-auto">
-            <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 총무 후보</h1>
+            <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 회원 명단</h1>
             {status !== 'finished' ? (
               <div className="grid grid-cols-5 gap-6">
                 {candidates.map(c => (
