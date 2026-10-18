@@ -167,7 +167,8 @@
       const [status, setStatus] = React.useState('register'); 
       const [candidates, setCandidates] = React.useState([]);
       const [hasVoted, setHasVoted] = React.useState(localStorage.getItem('lydia_voted') === 'true');
-      const [photoData, setPhotoData] = React.useState(null); 
+      const [photoData, setPhotoData] = React.useState(null);
+      const [isSubmitting, setIsSubmitting] = React.useState(false);
 
       React.useEffect(() => {
         const hash = window.location.hash;
@@ -193,9 +194,9 @@
           const img = new Image();
           img.onload = function() {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 800; // 고화질 800픽셀 유지
-            const scaleSize = MAX_WIDTH / img.width;
-            canvas.width = MAX_WIDTH;
+            const MAX_WIDTH = 800; // 800픽셀보다 클 때만 축소 (작은 사진은 억지로 키우지 않음)
+            const scaleSize = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
+            canvas.width = img.width * scaleSize;
             canvas.height = img.height * scaleSize;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -208,20 +209,28 @@
 
       const handleRegister = async (e) => {
         e.preventDefault();
+        if(isSubmitting) return; // 연타로 인한 중복 등록 방지
+
         const name = e.target.name.value;
         const birth = e.target.birth.value;
         const calendar = e.target.calendar.value;
         const isEarly = e.target.isEarly.checked;
-        
+
         if(!photoData) return alert("카메라로 촬영하거나 앨범에서 사진을 먼저 선택해 주세요.");
         if(!name || !birth) return alert("이름과 생년월일을 입력해 주세요.");
 
+        setIsSubmitting(true);
         db.collection("candidates").add({
           photo: photoData, name, birth, calendar, isEarly, votes: 0, timestamp: firebase.firestore.FieldValue.serverTimestamp()
         }).then(() => {
           alert("등록되었습니다! 추가 등록도 가능합니다.");
           e.target.reset();
-          setPhotoData(null); 
+          setPhotoData(null);
+        }).catch((err) => {
+          console.error(err);
+          alert("등록에 실패했습니다. 네트워크 상태를 확인하고 다시 시도해 주세요.");
+        }).finally(() => {
+          setIsSubmitting(false);
         });
       };
 
@@ -278,7 +287,7 @@
                     <label className="flex items-center gap-2 font-bold text-indigo-600 cursor-pointer"><input type="checkbox" name="isEarly" className="w-4 h-4" /> 빠른</label>
                   </div>
 
-                  <button type="submit" className="btn-burgundy font-bold p-4 rounded text-lg mt-2">🌸 회원 등록하기</button>
+                  <button type="submit" disabled={isSubmitting} className="btn-burgundy font-bold p-4 rounded text-lg mt-2 disabled:opacity-50">{isSubmitting ? '등록 중...' : '🌸 회원 등록하기'}</button>
                 </form>
               </div>
             )}
@@ -308,7 +317,16 @@
 
       // --- 화면 2: 대형 스크린 (노트북용) ---
       if (view === 'screen') {
-        const top3 = [...candidates].sort((a,b) => b.votes - a.votes).slice(0,3);
+        // 득표 많은 순, 동점이면 먼저 등록한 사람 우선. 1표도 못 받은 사람은 3인에서 제외.
+        const top3 = [...candidates]
+          .sort((a,b) => {
+            if (b.votes !== a.votes) return b.votes - a.votes;
+            const at = a.timestamp && a.timestamp.toMillis ? a.timestamp.toMillis() : 0;
+            const bt = b.timestamp && b.timestamp.toMillis ? b.timestamp.toMillis() : 0;
+            return at - bt;
+          })
+          .filter(c => c.votes > 0)
+          .slice(0,3);
         
         return (
           <div className="p-10 max-w-6xl mx-auto">
@@ -355,9 +373,11 @@
       if (view === 'admin') {
         const handleDownloadCSV = () => {
           if (candidates.length === 0) return alert("등록된 데이터가 없습니다.");
-          const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
-            + "이름,생년월일,양/음,빠른\n" 
-            + candidates.map(c => `${c.name},${c.birth},${c.calendar || '양력'},${c.isEarly ? 'O' : 'X'}`).join("\n");
+          // 쉼표나 따옴표가 들어있는 값도 깨지지 않도록 각 칸을 큰따옴표로 감싸고 내부 따옴표는 이스케이프
+          const csvField = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
+          const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
+            + "이름,생년월일,양/음,빠른\n"
+            + candidates.map(c => [c.name, c.birth, c.calendar || '양력', c.isEarly ? 'O' : 'X'].map(csvField).join(",")).join("\n");
           const encodedUri = encodeURI(csvContent);
           const link = document.createElement("a");
           link.setAttribute("href", encodedUri);
@@ -371,26 +391,57 @@
           if (candidates.length === 0) return alert("등록된 사진이 없습니다.");
           alert("사진을 압축하고 있습니다. 잠시만 기다려주세요...");
           const zip = new JSZip();
+          const usedNames = {}; // 동명이인이어도 파일이 서로 덮어쓰지 않도록 이름별로 번호를 붙임
           candidates.forEach(c => {
             const base64Data = c.photo.split(',')[1];
-            zip.file(`${c.name}.jpg`, base64Data, {base64: true});
+            const count = (usedNames[c.name] = (usedNames[c.name] || 0) + 1);
+            const fileName = count > 1 ? `${c.name}_${count}.jpg` : `${c.name}.jpg`;
+            zip.file(fileName, base64Data, {base64: true});
           });
           zip.generateAsync({type:"blob"}).then(function(content) {
             saveAs(content, "루디아_후보사진모음.zip");
           });
         };
 
+        const STATUS_INFO = {
+          register: { label: '등록 중', emoji: '📝', color: 'bg-gray-200 text-gray-700' },
+          voting: { label: '투표 중', emoji: '🗳️', color: 'bg-blue-100 text-blue-700' },
+          finished: { label: '투표 종료', emoji: '🎉', color: 'bg-[#f3e6ea] text-[#6A2C3E]' },
+        };
+        const steps = [
+          { key: 'register', label: '1. 등록모드' },
+          { key: 'voting', label: '2. 투표시작' },
+          { key: 'finished', label: '3. 결과발표' },
+        ];
+        const currentStepIndex = steps.findIndex(s => s.key === status);
+
         return (
           <div className="max-w-md mx-auto p-5">
             <h1 className="text-2xl font-bold mb-4 text-center">⚙️ 관리자 대시보드</h1>
-            
-            <div className="flex gap-2 mb-6">
-              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'register'})} className="flex-1 bg-gray-200 p-2 rounded text-sm font-bold">1.등록모드</button>
-              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'voting'})} className="flex-1 bg-blue-500 text-white p-2 rounded text-sm font-bold">2.투표시작</button>
-              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'finished'})} className="flex-1 btn-burgundy p-2 rounded text-sm font-bold">3.결과발표</button>
+
+            {/* 현재 진행 단계 표시 */}
+            <div className={`flex items-center justify-center gap-2 p-3 rounded-lg mb-4 font-bold text-lg ${STATUS_INFO[status].color}`}>
+              <span>{STATUS_INFO[status].emoji}</span>
+              <span>현재 단계: {STATUS_INFO[status].label}</span>
+            </div>
+            <div className="flex items-center mb-6">
+              {steps.map((s, i) => (
+                <React.Fragment key={s.key}>
+                  <div className={`flex-1 text-center text-xs font-bold py-1 rounded ${i === currentStepIndex ? 'bg-[#6A2C3E] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                    {s.label}
+                  </div>
+                  {i < steps.length - 1 && <div className={`w-4 h-0.5 ${i < currentStepIndex ? 'bg-[#6A2C3E]' : 'bg-gray-200'}`}></div>}
+                </React.Fragment>
+              ))}
             </div>
 
-            {candidates.sort((a,b)=>b.votes - a.votes).map((c, i) => (
+            <div className="flex gap-2 mb-6">
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'register'})} className={`flex-1 p-2 rounded text-sm font-bold ${status === 'register' ? 'ring-2 ring-offset-1 ring-gray-500' : ''} bg-gray-200`}>1.등록모드</button>
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'voting'})} className={`flex-1 p-2 rounded text-sm font-bold text-white ${status === 'voting' ? 'ring-2 ring-offset-1 ring-blue-700' : ''} bg-blue-500`}>2.투표시작</button>
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'finished'})} className={`flex-1 btn-burgundy p-2 rounded text-sm font-bold ${status === 'finished' ? 'ring-2 ring-offset-1 ring-[#50202e]' : ''}`}>3.결과발표</button>
+            </div>
+
+            {[...candidates].sort((a,b)=>b.votes - a.votes).map((c, i) => (
               <div key={c.id} className="flex items-center gap-4 bg-white p-3 mb-2 rounded border shadow-sm">
                 <span className="font-bold text-gray-400 w-4 text-center">{i+1}</span>
                 <img src={c.photo} className="w-12 h-12 object-cover rounded-full border" />
