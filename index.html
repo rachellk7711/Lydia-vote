@@ -137,7 +137,7 @@
       }, [visibleKey]);
 
       return (
-        <div className="fixed inset-0 overflow-hidden bg-[#FAF9F6]">
+        <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor: '#FAF9F6' }}>
           {/* 배경의 은은한 안내 문구 */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <h2 className="text-6xl font-bold text-gray-300 opacity-40 myeongjo tracking-widest text-center leading-relaxed">
@@ -404,10 +404,11 @@
           });
         };
 
+        // Tailwind CDN이 구버전 사전 컴파일 CSS라 bg-[#..] 같은 대괄호 임의값 클래스는 적용되지 않음 → 커스텀 색상은 style로 지정
         const STATUS_INFO = {
-          register: { label: '등록 중', emoji: '📝', color: 'bg-gray-200 text-gray-700' },
-          voting: { label: '투표 중', emoji: '🗳️', color: 'bg-blue-100 text-blue-700' },
-          finished: { label: '투표 종료', emoji: '🎉', color: 'bg-[#f3e6ea] text-[#6A2C3E]' },
+          register: { label: '등록 중', emoji: '📝', className: 'bg-gray-200 text-gray-700', style: {} },
+          voting: { label: '투표 중', emoji: '🗳️', className: 'bg-blue-100 text-blue-700', style: {} },
+          finished: { label: '투표 종료', emoji: '🎉', className: '', style: { backgroundColor: '#f3e6ea', color: '#6A2C3E' } },
         };
         const steps = [
           { key: 'register', label: '1. 등록모드' },
@@ -444,17 +445,20 @@
             <h1 className="text-2xl font-bold mb-4 text-center">⚙️ 관리자 대시보드</h1>
 
             {/* 현재 진행 단계 표시 */}
-            <div className={`flex items-center justify-center gap-2 p-3 rounded-lg mb-4 font-bold text-lg ${STATUS_INFO[status].color}`}>
+            <div className={`flex items-center justify-center gap-2 p-3 rounded-lg mb-4 font-bold text-lg ${STATUS_INFO[status].className}`} style={STATUS_INFO[status].style}>
               <span>{STATUS_INFO[status].emoji}</span>
               <span>현재 단계: {STATUS_INFO[status].label}</span>
             </div>
             <div className="flex items-center mb-6">
               {steps.map((s, i) => (
                 <React.Fragment key={s.key}>
-                  <div className={`flex-1 text-center text-xs font-bold py-1 rounded ${i === currentStepIndex ? 'bg-[#6A2C3E] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                  <div
+                    className={`flex-1 text-center text-xs font-bold py-1 rounded ${i === currentStepIndex ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                    style={i === currentStepIndex ? { backgroundColor: '#6A2C3E' } : {}}
+                  >
                     {s.label}
                   </div>
-                  {i < steps.length - 1 && <div className={`w-4 h-0.5 ${i < currentStepIndex ? 'bg-[#6A2C3E]' : 'bg-gray-200'}`}></div>}
+                  {i < steps.length - 1 && <div className="w-4 h-0.5" style={{ backgroundColor: i < currentStepIndex ? '#6A2C3E' : '#e5e7eb' }}></div>}
                 </React.Fragment>
               ))}
             </div>
@@ -462,25 +466,25 @@
             <div className="flex gap-2 mb-6">
               <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'register'})} className={`flex-1 p-2 rounded text-sm font-bold ${status === 'register' ? 'ring-2 ring-offset-1 ring-gray-500' : ''} bg-gray-200`}>1.등록모드</button>
               <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'voting'})} className={`flex-1 p-2 rounded text-sm font-bold text-white ${status === 'voting' ? 'ring-2 ring-offset-1 ring-blue-700' : ''} bg-blue-500`}>2.투표시작</button>
-              <button onClick={handleGoToFinished} className={`flex-1 btn-burgundy p-2 rounded text-sm font-bold ${status === 'finished' ? 'ring-2 ring-offset-1 ring-[#50202e]' : ''}`}>3.결과발표</button>
+              <button onClick={handleGoToFinished} className={`flex-1 btn-burgundy p-2 rounded text-sm font-bold ${status === 'finished' ? 'ring-2 ring-offset-1 ring-red-900' : ''}`}>3.결과발표</button>
             </div>
 
             {/* 최종 후보 선정 — 기본은 상위 3명, 동률이 생기면 ⭐ 버튼으로 직접 추가/제외 */}
             <div className="bg-white border rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-bold text-gray-700">⭐ 최종 후보 선정 (기본 3인, 동률 시 조정 가능)</p>
-                <button onClick={handleAutoSelectTop3} className="text-xs bg-gray-200 px-2 py-1 rounded font-bold whitespace-nowrap ml-2">득표 상위 3명 자동 선택</button>
+                <p className="text-sm font-bold text-gray-700">⭐ 최종 후보 선정</p>
+                <button onClick={handleAutoSelectTop3} className="text-xs bg-gray-200 px-2 py-1 rounded font-bold whitespace-nowrap ml-2">상위 3명 자동 선택</button>
               </div>
-              <div className="flex flex-wrap gap-2 min-h-[32px]">
-                {finalists.length === 0 && <span className="text-xs text-gray-400">아직 선정된 후보가 없습니다</span>}
+              <div className="flex flex-nowrap gap-2 overflow-x-auto" style={{ minHeight: '32px' }}>
+                {finalists.length === 0 && <span className="text-xs text-gray-400 whitespace-nowrap">아직 선정된 후보가 없습니다</span>}
                 {finalists.map(c => (
-                  <span key={c.id} className="flex items-center gap-1 bg-[#6A2C3E] text-white text-xs font-bold pl-2 pr-1 py-1 rounded-full">
-                    {formatName(c.birth, c.name)} ({c.votes}표)
+                  <span key={c.id} className="flex items-center gap-1 text-white text-xs font-bold pl-2 pr-1 py-1 rounded-full whitespace-nowrap flex-shrink-0" style={{ backgroundColor: '#6A2C3E' }}>
+                    {formatName(c.birth, c.name)}
                     <button onClick={() => toggleFinalist(c)} className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/20">×</button>
                   </span>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-2">현재 {finalists.length}명 선정됨 · 결과발표 화면에 이 인원이 그대로 표시됩니다</p>
+              <p className="text-xs text-gray-400 mt-2">현재 {finalists.length}명 선정됨</p>
             </div>
 
             {[...candidates].sort((a,b)=>b.votes - a.votes).map((c, i) => (
