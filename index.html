@@ -242,4 +242,62 @@
           if (candidates.length === 0) return alert("등록된 사진이 없습니다.");
           alert("사진을 압축하고 있습니다. 잠시만 기다려주세요...");
           const zip = new JSZip();
-          candidates.forEach
+          candidates.forEach(c => {
+            const base64Data = c.photo.split(',')[1];
+            zip.file(`${c.name}.jpg`, base64Data, {base64: true});
+          });
+          zip.generateAsync({type:"blob"}).then(function(content) {
+            saveAs(content, "루디아_후보사진모음.zip");
+          });
+        };
+
+        return (
+          <div className="max-w-md mx-auto p-5">
+            <h1 className="text-2xl font-bold mb-4 text-center">⚙️ 관리자 대시보드</h1>
+            
+            <div className="flex gap-2 mb-6">
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'register'})} className="flex-1 bg-gray-200 p-2 rounded text-sm font-bold">1.등록모드</button>
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'voting'})} className="flex-1 bg-blue-500 text-white p-2 rounded text-sm font-bold">2.투표시작</button>
+              <button onClick={()=>db.collection("settings").doc("appStatus").set({current:'finished'})} className="flex-1 btn-burgundy p-2 rounded text-sm font-bold">3.결과발표</button>
+            </div>
+
+            {candidates.sort((a,b)=>b.votes - a.votes).map((c, i) => (
+              <div key={c.id} className="flex items-center gap-4 bg-white p-3 mb-2 rounded border shadow-sm">
+                <span className="font-bold text-gray-400 w-4 text-center">{i+1}</span>
+                <img src={c.photo} className="w-12 h-12 object-cover rounded-full border" />
+                <div className="flex-1">
+                  <p className="font-bold text-lg">{c.name} <span className="text-sm font-normal text-gray-500">({c.birth})</span></p>
+                  <p className="text-sm text-red-600 font-bold">{c.votes}표</p>
+                </div>
+                <button onClick={()=>{ if(confirm("이 후보를 삭제할까요?")) db.collection("candidates").doc(c.id).delete(); }} className="text-red-500 text-sm p-2 bg-red-50 rounded">삭제</button>
+              </div>
+            ))}
+
+            <div className="mt-8 pt-6 border-t border-gray-300">
+              <p className="text-sm text-gray-500 mb-2 font-bold">💾 백업 및 초기화</p>
+              
+              <div className="flex gap-2 mb-3">
+                <button onClick={handleDownloadCSV} className="flex-1 bg-green-600 text-white p-3 rounded font-bold text-sm">
+                  📊 명단(CSV) 저장
+                </button>
+                <button onClick={handleDownloadImages} className="flex-1 bg-blue-600 text-white p-3 rounded font-bold text-sm">
+                  📸 사진(ZIP) 저장
+                </button>
+              </div>
+              
+              <button onClick={()=>{
+                if(confirm("정말 모든 데이터를 영구 삭제합니까? (삭제 전 명단과 사진을 꼭 백업해두세요!)")) {
+                  candidates.forEach(c => db.collection("candidates").doc(c.id).delete());
+                  alert("초기화되었습니다.");
+                }
+              }} className="w-full bg-red-600 text-white p-3 rounded font-bold text-lg mt-3">🚨 모든 데이터 파기</button>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
