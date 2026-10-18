@@ -56,16 +56,40 @@
     // ★ 투표 중일 때 대형 스크린에 표시되는 '스크린세이버' 애니메이션 컴포넌트
     const FloatingCards = ({ candidates }) => {
       const cardsRef = React.useRef([]);
+      const candidatesRef = React.useRef(candidates);
+      candidatesRef.current = candidates;
+      const [visibleIds, setVisibleIds] = React.useState([]);
+
+      // 전체 후보 중 절반만 무작위로 뽑아 화면에 보여주고, 일정 시간마다 다른 절반으로 교체
+      React.useEffect(() => {
+        if (candidates.length === 0) { setVisibleIds([]); return; }
+
+        const pickHalf = () => {
+          const list = candidatesRef.current;
+          const half = Math.max(1, Math.ceil(list.length / 2));
+          const shuffled = [...list].sort(() => Math.random() - 0.5);
+          setVisibleIds(shuffled.slice(0, half).map(c => c.id));
+        };
+
+        pickHalf();
+        const rotateId = setInterval(pickHalf, 10000); // 10초마다 교체
+        return () => clearInterval(rotateId);
+      }, [candidates.length]);
+
+      const visibleCandidates = React.useMemo(
+        () => candidates.filter(c => visibleIds.includes(c.id)),
+        [candidates, visibleIds]
+      );
 
       React.useEffect(() => {
-        if (candidates.length === 0) return;
-        
+        if (visibleCandidates.length === 0) return;
+
         // 각 카드의 시작 위치와 이동 속도(방향)를 무작위로 설정
-        const physics = candidates.map(() => ({
-          x: Math.random() * (window.innerWidth - 200),
-          y: Math.random() * (window.innerHeight - 250),
-          dx: (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 1.5), // X축 이동 속도
-          dy: (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 1.5), // Y축 이동 속도
+        const physics = visibleCandidates.map(() => ({
+          x: Math.random() * (window.innerWidth - 360),
+          y: Math.random() * (window.innerHeight - 420),
+          dx: (Math.random() > 0.5 ? 1 : -1) * (0.25 + Math.random() * 0.75), // X축 이동 속도 (기존 대비 절반)
+          dy: (Math.random() > 0.5 ? 1 : -1) * (0.25 + Math.random() * 0.75), // Y축 이동 속도 (기존 대비 절반)
         }));
 
         let animationId;
@@ -91,7 +115,7 @@
         
         animationId = requestAnimationFrame(animate);
         return () => cancelAnimationFrame(animationId);
-      }, [candidates]);
+      }, [visibleCandidates]);
 
       return (
         <div className="fixed inset-0 overflow-hidden bg-[#FAF9F6]">
@@ -101,16 +125,16 @@
               지금은 투표 중입니다<br/>스마트폰에서 소중한 한 표를 행사해 주세요
             </h2>
           </div>
-          
-          {/* 떠다니는 포토 카드들 */}
-          {candidates.map((c, i) => (
-            <div 
-              key={c.id} 
+
+          {/* 떠다니는 포토 카드들 (이미지 2배 크기, 전체의 절반만 표시) */}
+          {visibleCandidates.map((c, i) => (
+            <div
+              key={c.id}
               ref={el => cardsRef.current[i] = el}
-              className="absolute top-0 left-0 card p-3 text-center bg-white shadow-2xl border-2 border-gray-100" 
-              style={{ width: '160px', willChange: 'transform' }}
+              className="absolute top-0 left-0 card p-3 text-center bg-white shadow-2xl border-2 border-gray-100"
+              style={{ width: '320px', willChange: 'transform' }}
             >
-              <img src={c.photo} className="w-full h-36 object-cover rounded mb-3 pointer-events-none" />
+              <img src={c.photo} className="w-full h-72 object-cover rounded mb-3 pointer-events-none" />
               <p className="text-xl font-bold">{formatName(c.birth, c.name)}</p>
             </div>
           ))}
