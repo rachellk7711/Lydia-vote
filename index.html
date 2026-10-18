@@ -347,11 +347,10 @@
             {/* 투표 종료 결과 발표 (관리자가 선정한 최종 후보) */}
             {status === 'finished' && (
               <div>
-                <h1 className="text-5xl text-center mb-12 border-b border-gray-300 pb-6">🍂 아름다운 동행, 루디아 회원 명단</h1>
                 {finalists.length > 0 ? (
-                  <h2 className="text-4xl text-center mb-10">최종 {finalists.length}인입니다!</h2>
+                  <h2 className="text-4xl text-center mb-10 mt-6">최종 후보입니다!</h2>
                 ) : (
-                  <h2 className="text-2xl text-center mb-10 text-gray-400">관리자 화면에서 최종 후보를 선정해 주세요</h2>
+                  <h2 className="text-2xl text-center mb-10 mt-6 text-gray-400">관리자 화면에서 최종 후보를 선정해 주세요</h2>
                 )}
                 <div className="flex flex-wrap justify-center gap-10 mt-10">
                   {finalists.map(c => (
