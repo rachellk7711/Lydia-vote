@@ -99,7 +99,7 @@
       const track1 = [...safeRow1, ...safeRow1];
       const track2 = [...safeRow2, ...safeRow2];
       // 인원 수에 비례해 재생 시간을 정해서, 인원이 많아져도 한 사람당 흐르는 속도는 일정하게 유지 (기존보다 빠르게)
-      const speed = (list) => Math.max(10, list.length * 3);
+      const speed = (list) => Math.max(6, list.length * 1.8);
 
       // 컴포넌트로 따로 빼지 않고 함수로 JSX만 반환 — 투표로 candidates가 바뀔 때마다
       // 새 컴포넌트 타입으로 리마운트되어 애니메이션이 처음으로 튕기는 것을 방지
