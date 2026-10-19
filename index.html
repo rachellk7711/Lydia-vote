@@ -17,8 +17,8 @@
 
     /* ── 투표 화면: 흘러가는 사진을 폴라로이드처럼 꾸밈 ── */
     .polaroid {
-      background: linear-gradient(180deg, #fffdf9 0%, #fdf3e4 100%);
-      border: 1px solid #ecdcb8;
+      background: #ffffff;
+      border: 1px solid #f1f1ee;
       border-radius: 6px;
       padding: 14px 14px 0 14px;
       box-shadow: 0 14px 28px rgba(106,44,62,0.16);
@@ -37,7 +37,7 @@
       border-radius: 2px;
       box-shadow: 0 1px 2px rgba(0,0,0,0.12);
     }
-    .polaroid-photo { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 2px; }
+    .polaroid-photo { position: relative; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 2px; }
     /* 사진에 아주 은은한 뽀샤시(소프트 글로우) 효과 */
     .polaroid-photo img { filter: brightness(1.06) contrast(0.95) saturate(1.08) blur(0.3px); }
     .polaroid-photo::after {
@@ -228,7 +228,10 @@
       const [view, setView] = React.useState('mobile'); 
       const [status, setStatus] = React.useState('register'); 
       const [candidates, setCandidates] = React.useState([]);
-      const [hasVoted, setHasVoted] = React.useState(localStorage.getItem('lydia_voted') === 'true');
+      // 재투표 허용 여부는 'lydia_voted' 단순 플래그가 아니라, 관리자가 "모든 데이터 파기" 시 올리는
+      // voteSession 번호와 비교해서 판단함 → 데이터를 파기하면 같은 폰에서도 다시 투표 가능해짐
+      const [voteSession, setVoteSession] = React.useState(null);
+      const [hasVoted, setHasVoted] = React.useState(false);
       const [photoData, setPhotoData] = React.useState(null);
       const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -238,8 +241,15 @@
         else if(hash === '#screen') setView('screen');
         
         db.collection("settings").doc("appStatus").onSnapshot(doc => {
-          if(doc.exists) setStatus(doc.data().current);
-          else db.collection("settings").doc("appStatus").set({ current: 'register' });
+          if(doc.exists) {
+            const data = doc.data();
+            setStatus(data.current);
+            const session = data.voteSession || 1;
+            setVoteSession(session);
+            setHasVoted(localStorage.getItem('lydia_voted_session') === String(session));
+          } else {
+            db.collection("settings").doc("appStatus").set({ current: 'register', voteSession: 1 });
+          }
         });
 
         db.collection("candidates").orderBy("timestamp", "asc").onSnapshot(snapshot => {
@@ -302,7 +312,7 @@
           db.collection("candidates").doc(id).update({
             votes: firebase.firestore.FieldValue.increment(1)
           }).then(() => {
-            localStorage.setItem('lydia_voted', 'true');
+            localStorage.setItem('lydia_voted_session', String(voteSession));
             setHasVoted(true);
             alert("투표가 완료되었습니다.");
           });
@@ -555,9 +565,11 @@
               </div>
               
               <button onClick={()=>{
-                if(confirm("정말 모든 데이터를 영구 삭제합니까? (삭제 전 명단과 사진을 꼭 백업해두세요!)")) {
+                if(confirm("정말 모든 데이터를 영구 삭제합니까? (삭제 전 명단과 사진을 꼭 백업해두세요!)\n이후 같은 휴대폰에서도 재투표가 가능해집니다.")) {
                   candidates.forEach(c => db.collection("candidates").doc(c.id).delete());
-                  alert("초기화되었습니다.");
+                  // voteSession을 올려서, 예전에 투표했던 폰도 다음 행사에서 다시 투표할 수 있게 함
+                  db.collection("settings").doc("appStatus").set({ voteSession: firebase.firestore.FieldValue.increment(1) }, { merge: true });
+                  alert("초기화되었습니다. (재투표도 다시 허용됩니다)");
                 }
               }} className="w-full bg-red-600 text-white p-3 rounded font-bold text-lg mt-3">🚨 모든 데이터 파기</button>
             </div>
