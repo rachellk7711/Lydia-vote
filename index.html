@@ -24,14 +24,6 @@
       box-shadow: 0 16px 32px rgba(106,44,62,0.16);
       overflow: visible;
     }
-    .finale-rank {
-      position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
-      width: 34px; height: 34px; border-radius: 50%;
-      background: #6A2C3E; color: #f6e3b4; border: 2px solid #d9b56a;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 15px; font-family: 'Noto Sans KR', sans-serif;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
     .falling-leaf { position: absolute; top: -10%; opacity: 0; animation: leafFall linear infinite; will-change: transform, opacity; pointer-events: none; }
     @keyframes leafFall {
       0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
@@ -370,9 +362,10 @@
       // --- 화면 2: 대형 스크린 (노트북용) ---
       if (view === 'screen') {
         // 최종 후보는 더 이상 득표수로 자동 계산하지 않고, 관리자가 선정한 사람을 그대로 표시 (동률 시 인원 조정 가능)
+        // 순위는 비공개 항목이므로 득표수 순이 아닌 이름순으로 표시
         const finalists = candidates
           .filter(c => c.finalist)
-          .sort((a,b) => b.votes - a.votes);
+          .sort((a,b) => (a.name || '').localeCompare(b.name || '', 'ko'));
 
         return (
           <div className="p-10 max-w-6xl mx-auto">
@@ -398,7 +391,7 @@
 
             {/* 투표 종료 결과 발표 (관리자가 선정한 최종 후보) — 가을 분위기 연출 */}
             {status === 'finished' && (
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', minHeight: 'calc(100vh - 5rem)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <FallingLeaves />
                 <div style={{ position: 'relative', zIndex: 1 }}>
                   {finalists.length > 0 ? (
@@ -414,9 +407,8 @@
                   {/* (쓰고 있는 Tailwind CDN이 구버전 사전 컴파일 CSS라 대괄호 임의값 클래스가 적용되지 않아 인라인 스타일로 처리) */}
                   <div style={{ position: 'relative', left: '50%', width: '100vw', marginLeft: '-50vw', paddingLeft: '2.5rem', paddingRight: '2.5rem', boxSizing: 'border-box' }}>
                     <div className="flex flex-nowrap justify-center items-start gap-6 mt-10">
-                      {finalists.map((c, i) => (
+                      {finalists.map((c) => (
                         <div key={c.id} className="finale-card p-5 text-center" style={{ position: 'relative', flex: '1 1 0%', minWidth: 0, maxWidth: '300px' }}>
-                          <span className="finale-rank">{i + 1}</span>
                           <img src={c.photo} className="w-full object-cover mb-4 mt-1" style={{ aspectRatio: '1 / 1', borderRadius: '12px' }} />
                           <p className="text-2xl font-bold truncate" style={{ color: '#6A2C3E' }}>{formatName(c.birth, c.name)}</p>
                         </div>
