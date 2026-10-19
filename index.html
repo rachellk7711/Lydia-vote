@@ -6,7 +6,7 @@
   <title>루디아 모임 투표</title>
   <!-- 폰트 및 스타일 -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
   <style>
     body { background-color: #FAF9F6; font-family: 'Noto Sans KR', sans-serif; color: #333; }
     h1, h2, .myeongjo { font-family: 'Nanum Myeongjo', serif; color: #6A2C3E; }
@@ -14,6 +14,40 @@
     .btn-burgundy:hover { background-color: #50202e; }
     .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e5e5; overflow: hidden; }
     .leaf-bg { background-image: url('https://www.transparenttextures.com/patterns/rice-paper.png'); }
+
+    /* ── 투표 화면: 흘러가는 사진을 폴라로이드처럼 꾸밈 ── */
+    .polaroid {
+      background: linear-gradient(180deg, #fffdf9 0%, #fdf3e4 100%);
+      border: 1px solid #ecdcb8;
+      border-radius: 6px;
+      padding: 14px 14px 0 14px;
+      box-shadow: 0 14px 28px rgba(106,44,62,0.16);
+      position: relative;
+    }
+    /* 폴라로이드 위쪽의 테이프 느낌 */
+    .polaroid::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      width: 56px;
+      height: 20px;
+      margin-left: -28px;
+      background: rgba(201,162,75,0.55);
+      border-radius: 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }
+    .polaroid-photo { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 2px; }
+    /* 사진에 아주 은은한 뽀샤시(소프트 글로우) 효과 */
+    .polaroid-photo img { filter: brightness(1.06) contrast(0.95) saturate(1.08) blur(0.3px); }
+    .polaroid-photo::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 32%, rgba(255,255,255,0.3), transparent 62%);
+      mix-blend-mode: soft-light;
+      pointer-events: none;
+    }
+    .polaroid-caption { font-family: 'Nanum Pen Script', cursive; font-size: 1.8rem; color: #6A2C3E; text-align: center; padding: 8px 6px 16px; }
 
     /* ── 투표 화면: 사진들이 한 줄로 천천히 흘러가는 컨베이어 벨트 효과 ── */
     /* 등장 방향별로 이름을 분리: LTR(오른쪽→왼쪽)/RTL(왼쪽→오른쪽) 모두 translateX(0)에서 "시작"하도록 맞춰서,
@@ -97,11 +131,7 @@
     const FloatingCards = ({ candidates }) => {
       if (candidates.length === 0) {
         return (
-          <div className="fixed inset-0 overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#FAF9F6' }}>
-            <h2 className="text-6xl font-bold text-gray-300 opacity-40 myeongjo tracking-widest text-center leading-relaxed">
-              지금은 투표 중입니다<br/>스마트폰에서 소중한 한 표를 행사해 주세요
-            </h2>
-          </div>
+          <div className="fixed inset-0 overflow-hidden leaf-bg" style={{ backgroundColor: '#FAF9F6' }}></div>
         );
       }
 
@@ -141,11 +171,13 @@
             {track.map((c, i) => (
               <div
                 key={i}
-                className="card p-3 text-center bg-white shadow-2xl border-2 border-gray-100"
-                style={{ width: '320px', flex: '0 0 auto', marginRight: '2rem' }}
+                className="polaroid"
+                style={{ width: '300px', flex: '0 0 auto', marginRight: '2.5rem', transform: `rotate(${i % 2 === 0 ? -2 : 2}deg)` }}
               >
-                <img src={c.photo} className="w-full h-72 object-cover rounded mb-3 pointer-events-none" />
-                <p className="text-xl font-bold">{formatName(c.birth, c.name)}</p>
+                <div className="polaroid-photo">
+                  <img src={c.photo} className="w-full h-full object-cover pointer-events-none" />
+                </div>
+                <p className="polaroid-caption">{formatName(c.birth, c.name)}</p>
               </div>
             ))}
           </div>
@@ -153,14 +185,7 @@
       );
 
       return (
-        <div className="fixed inset-0 overflow-hidden flex flex-col items-center justify-center" style={{ backgroundColor: '#FAF9F6' }}>
-          {/* 배경의 은은한 안내 문구 */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 0 }}>
-            <h2 className="text-6xl font-bold text-gray-300 opacity-40 myeongjo tracking-widest text-center leading-relaxed">
-              지금은 투표 중입니다<br/>스마트폰에서 소중한 한 표를 행사해 주세요
-            </h2>
-          </div>
-
+        <div className="fixed inset-0 overflow-hidden leaf-bg flex flex-col items-center justify-center" style={{ backgroundColor: '#FAF9F6' }}>
           {/* 사진들이 두 줄로 서로 반대 방향으로 천천히 흘러가는 컨베이어 벨트 효과 */}
           <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
             <div style={{ marginBottom: '2rem' }}>
