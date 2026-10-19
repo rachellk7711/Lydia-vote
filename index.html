@@ -16,9 +16,25 @@
     .leaf-bg { background-image: url('https://www.transparenttextures.com/patterns/rice-paper.png'); }
 
     /* ── 투표 화면: 사진들이 한 줄로 천천히 흘러가는 컨베이어 벨트 효과 ── */
-    @keyframes marquee {
+    /* 등장 방향별로 이름을 분리: LTR(오른쪽→왼쪽)/RTL(왼쪽→오른쪽) 모두 translateX(0)에서 "시작"하도록 맞춰서,
+       화면 밖에서 들어오는 인트로 애니메이션과 이어붙여도 끊김(점프)이 없게 함 */
+    @keyframes marqueeLTR {
       from { transform: translateX(0); }
       to   { transform: translateX(-50%); }
+    }
+    @keyframes marqueeRTL {
+      from { transform: translateX(0); }
+      to   { transform: translateX(50%); }
+    }
+    /* 마운트 직후 모든 사진이 "이미 화면에 떠 있는 상태"로 시작해 노출시간이 짧게 잘리는 것을 막기 위한
+       1회성 인트로: 화면 완전히 밖(좌/우)에서부터 들어오게 해서, 첫 사진부터 모두 동일한 노출시간을 보장함 */
+    @keyframes marqueeIntroFromRight {
+      from { transform: translateX(100vw); }
+      to   { transform: translateX(0); }
+    }
+    @keyframes marqueeIntroFromLeft {
+      from { transform: translateX(-100vw); }
+      to   { transform: translateX(0); }
     }
 
     /* ── 최종 후보 발표 화면: 가을 분위기 장식 ── */
@@ -99,7 +115,13 @@
       const track1 = [...safeRow1, ...safeRow1];
       const track2 = [...safeRow2, ...safeRow2];
       // 인원 수에 비례해 재생 시간을 정해서, 인원이 많아져도 한 사람당 흐르는 속도는 일정하게 유지 (기존보다 빠르게)
-      const speed = (list) => Math.max(3, list.length * 0.9);
+      // 카드 1장당 이동 거리(카드 320px + 오른쪽 여백 2rem=32px)를 0.9초에 통과하므로, 속도(px/s)는 인원 수와 무관하게 항상 동일함
+      const CARD_STEP_PX = 320 + 32;
+      const SEC_PER_CARD = 0.9;
+      const speed = (list) => Math.max(3, list.length * SEC_PER_CARD);
+      const px_per_sec = CARD_STEP_PX / SEC_PER_CARD;
+      // 마운트 시점에 화면 밖(오른쪽/왼쪽)에서부터 들어오도록, 뷰포트 가로폭(1배)을 동일한 속도로 지나오는데 걸리는 시간을 인트로 길이로 사용
+      const introDuration = (typeof window !== 'undefined' ? window.innerWidth : 1920) / px_per_sec;
 
       // 컴포넌트로 따로 빼지 않고 함수로 JSX만 반환 — 투표로 candidates가 바뀔 때마다
       // 새 컴포넌트 타입으로 리마운트되어 애니메이션이 처음으로 튕기는 것을 방지
@@ -108,11 +130,11 @@
           <div
             className="flex items-start"
             style={{
-              animationName: 'marquee',
-              animationDuration: `${duration}s`,
-              animationTimingFunction: 'linear',
-              animationIterationCount: 'infinite',
-              animationDirection: reverse ? 'reverse' : 'normal',
+              // 1) 인트로: 화면 완전히 밖에서 한 번만 들어옴 → 2) 본 루프: 끊김 없이 무한 반복
+              // 두 애니메이션 모두 translateX(0)에서 이어지므로 전환 시 점프(튐)가 없음
+              animation: reverse
+                ? `marqueeIntroFromLeft ${introDuration}s linear forwards, marqueeRTL ${duration}s linear ${introDuration}s infinite`
+                : `marqueeIntroFromRight ${introDuration}s linear forwards, marqueeLTR ${duration}s linear ${introDuration}s infinite`,
               willChange: 'transform',
             }}
           >
